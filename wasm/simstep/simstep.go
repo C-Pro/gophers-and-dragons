@@ -1,5 +1,7 @@
 package simstep
 
+import "github.com/quasilyte/gophers-and-dragons/game"
+
 type Action interface {
 	Fields() []interface{}
 }
@@ -69,6 +71,15 @@ func (a ChangeCardCount) Fields() []interface{} {
 	return []interface{}{"changeCardCount", a.Name, a.Delta}
 }
 
+type UseCard struct {
+	Name string
+	Type game.CardType
+}
+
+func (a UseCard) Fields() []interface{} {
+	return []interface{}{"useCard", a.Name, a.Type}
+}
+
 type UpdateHP struct {
 	Delta int
 }
@@ -95,11 +106,12 @@ func (a UpdateCreepHP) Fields() []interface{} {
 
 type SetCreep struct {
 	Name string
+	Type game.CreepType
 	HP   int
 }
 
 func (a SetCreep) Fields() []interface{} {
-	return []interface{}{"setCreep", a.Name, a.HP}
+	return []interface{}{"setCreep", a.Name, a.HP, a.Type}
 }
 
 type SetNextCreep struct {

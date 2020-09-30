@@ -88,6 +88,11 @@ func (r *runner) victory() {
 func (r *runner) initWorld() {
 	r.state.Creep = newCreep(r.peekCreep(1))
 	r.state.NextCreep = r.peekCreep(2)
+	r.out = append(r.out, simstep.SetCreep{
+		Name: r.state.Creep.Type.String(),
+		HP:   r.state.Creep.HP,
+		Type: r.state.Creep.Type,
+	})
 	r.initDeck()
 }
 
@@ -119,11 +124,11 @@ func (r *runner) peekCreep(round int) game.CreepType {
 	}
 
 	// Dragon is always encountered at the last round.
-	if round == r.config.Rounds {
+	if round == r.config.Rounds && r.config.Rounds != 1 {
 		return game.CreepDragon
 	}
 	// Cheepy is always encountered at the first round.
-	if round == 1 {
+	if round == 1 && r.config.Rounds != 1 {
 		return game.CreepCheepy
 	}
 	// Imp is always encountered at the second
@@ -134,7 +139,7 @@ func (r *runner) peekCreep(round int) game.CreepType {
 	roll := r.rand.Intn(99)
 
 	// First 5 rounds can't have high-tier enemies.
-	if r.state.Round <= 5 {
+	if r.state.Round <= 5 && r.config.Rounds != 1 {
 		switch {
 		case roll >= 90: // 10%
 			return game.CreepFairy
@@ -191,6 +196,7 @@ func (r *runner) runAvatarAction(cardType game.CardType, card game.CardStats) {
 		r.badMoves++
 		return
 	}
+
 	if cardCount != -1 {
 		r.out = append(r.out, simstep.ChangeCardCount{
 			Name:  cardType.String(),
@@ -198,6 +204,11 @@ func (r *runner) runAvatarAction(cardType game.CardType, card game.CardStats) {
 		})
 		changeDeckCardCount(r.state.Deck, cardType, -1)
 	}
+
+	r.out = append(r.out, simstep.UseCard{
+		Name: cardType.String(),
+		Type: cardType,
+	})
 
 	if card.MP != 0 {
 		if avatar.MP < card.MP {
@@ -340,6 +351,7 @@ func (r *runner) nextRound() {
 	r.out = append(r.out, simstep.SetCreep{
 		Name: r.state.Creep.Type.String(),
 		HP:   r.state.Creep.HP,
+		Type: r.state.Creep.Type,
 	})
 	r.out = append(r.out, simstep.SetNextCreep{
 		Name: r.state.NextCreep.String(),
@@ -364,6 +376,7 @@ func (r *runner) endTurn() {
 	r.state.Turn++
 	r.roundTurns++
 	r.out = append(r.out, simstep.Wait{})
+	//fmt.Println(r.out)
 }
 
 func (r *runner) emitLogf(format string, args ...interface{}) {
