@@ -1,4 +1,12 @@
 <meta charset="utf-8">
+
+<meta property="og:title" content="Gophers & Dragons">
+<meta property="og:type" content="website">
+<meta property="og:description" content="Rogue-like game for Go programmers.">
+<meta property="og:url" content="https://quasilyte.dev/gophers-and-dragons/">
+<meta property="og:image" content="https://raw.githubusercontent.com/quasilyte/gophers-and-dragons/master/logo.png">
+<meta property="og:locale" content="en_US">
+
 <link rel="stylesheet" href="styles.css">
 
 <title>Gophers & Dragons</title>
@@ -7,14 +15,29 @@
     <div id="head" itemprop="name">Gophers & Dragons</div>
 
     <input title="Run simulation from the beginning" id="button_run" type="button" value="Run" style="width: 96px">
+    <select title="Change the simulation speed" id="select_speed">
+        <option value="2500">Very slow speed</option>
+        <option value="1500">Slow speed</option>
+        <option value="750" selected="selected">Normal speed</option>
+        <option value="350">Fast speed</option>
+        <option value="100">Very fast speed</option>
+        <option value="1">Instant speed</option>
+    </select>
     <input title="Pause the simulation; space is a hotkey" id="button_pause" type="button" value="Pause" style="width: 96px">
+    <input title="Advance 1 turn forward (only works when paused)" id="button_next_turn" type="button" value="Next Turn" style="width: 96px">
+    <input title="Format the source code with gofmt" id="button_format" type="button" value="Format" style="width: 96px">
+    <input title="Copy a sharable link" id="button_share" type="button" value="Share" style="width: 96px">
+    <select title="Switch between tactics/game settings editor" id="select_tab">
+        <option value="tab_tactics" selected="selected">Tactics editor</option>
+        <option value="tab_settings">Game editor</option>
+    </select>
     <a href="https://github.com/quasilyte/gophers-and-dragons/blob/master/manual.md" style="margin-left: 32px; line-height: 30px">Open documentation</a>
 </div>
 
 <div id="wrap">
     <div style="width: 1500px">
         <div id="code-block" style="float: left">
-            <textarea id="code_editor" class="code block" data-gramm="false" spellcheck="false">
+            <textarea id="tactics_editor" class="editor code block" data-gramm="false" spellcheck="false">
 package tactic
 
 import "github.com/quasilyte/gophers-and-dragons/game"
@@ -42,22 +65,12 @@ func tactic2(s game.State) game.CardType {
 	return game.CardRetreat
 }
             </textarea>
+            <textarea id="settings_editor" class="editor code block" data-gramm="false" spellcheck="false" style="display: none;"></textarea>
 
             <br>
             <br>
-            <label title="Change the simulation speed" style="float: left">
-                Speed:
-                <select id="select_speed">
-                    <option value="2500">Very slow</option>
-                    <option value="1500">Slow</option>
-                    <option value="750" selected="selected">Normal</option>
-                    <option value="400">Fast</option>
-                    <option value="200">Very fast</option>
-                    <option value="1">Instant</option>
-                </select>
-            </label>
-
-            <div title="How well your program performed in the game" style="margin-left: 32px; margin-top: 4px; width: 100px; float: left">
+            
+            <div title="How well your program performed in the game" style="margin-top: 4px; width: 100px; float: left">
                 Score: <span id="status_score">0</span>
             </div>
             <div title="Current turn number" style="margin-top: 4px; width: 100px; float: left">
@@ -141,5 +154,6 @@ func tactic2(s game.State) game.CardType {
     </div>
 </div>
 
+<script src="lz-string.js"></script>
 <script src="wasm_exec.js"></script>
 <script src="game.js"></script>

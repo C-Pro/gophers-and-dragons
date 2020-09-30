@@ -3,7 +3,7 @@ package sim
 import (
 	"fmt"
 	"math/rand"
-	"time"
+	"runtime/debug"
 
 	"github.com/quasilyte/gophers-and-dragons/game"
 	"github.com/quasilyte/gophers-and-dragons/wasm/gamedata"
@@ -14,6 +14,7 @@ type Config struct {
 	AvatarHP int
 	AvatarMP int
 	Rounds   int
+	Seed     int64
 }
 
 func Run(config *Config, chooseCard func(game.State) game.CardType) []simstep.Action {
@@ -22,12 +23,17 @@ func Run(config *Config, chooseCard func(game.State) game.CardType) []simstep.Ac
 }
 
 func newGameState(config *Config) *game.State {
+	avatarStats := game.AvatarStats{
+		MaxHP: config.AvatarHP,
+		MaxMP: config.AvatarMP,
+	}
 	return &game.State{
 		Round: 1,
 		Turn:  1,
-		Avatar: game.AvatarStatus{
-			HP: config.AvatarHP,
-			MP: config.AvatarMP,
+		Avatar: game.Avatar{
+			HP:          avatarStats.MaxHP,
+			MP:          avatarStats.MaxMP,
+			AvatarStats: avatarStats,
 		},
 		Deck: make(map[game.CardType]game.Card),
 	}
@@ -41,7 +47,6 @@ type runner struct {
 	chooseCard    func(game.State) game.CardType
 	peekableCards []game.CardType
 	badMoves      int
-	roundTurns    int
 }
 
 func newRunner(config *Config, chooseCard func(game.State) game.CardType) *runner {
@@ -49,11 +54,21 @@ func newRunner(config *Config, chooseCard func(game.State) game.CardType) *runne
 		config:     config,
 		state:      newGameState(config),
 		chooseCard: chooseCard,
-		rand:       rand.New(rand.NewSource(time.Now().Unix())),
+		rand:       rand.New(rand.NewSource(config.Seed)),
 	}
 }
 
-func (r *runner) Run() []simstep.Action {
+func (r *runner) Run() (out []simstep.Action) {
+	defer func() {
+		rv := recover()
+		if rv == nil {
+			return // OK
+		}
+		out = append(out, simstep.RedLog{Message: "Panic: " + fmt.Sprint(rv)})
+		// Print stack trace to the JS console.
+		println(string(debug.Stack()))
+	}()
+
 	r.initWorld()
 	r.out = append(r.out, simstep.NextRound{})
 	for {
@@ -61,7 +76,7 @@ func (r *runner) Run() []simstep.Action {
 			r.emitRedLogf("Game over: too many illegal moves!")
 			break
 		}
-		if r.roundTurns >= 50 {
+		if r.state.RoundTurn >= 50 {
 			r.emitRedLogf("Game over: round lasted for too long!")
 			break
 		}
@@ -186,7 +201,7 @@ func (r *runner) runCreepAction(parried bool) {
 	r.emitRedLogf("%s deals %d damage", creep.Type.String(), damageRoll)
 }
 
-func (r *runner) runAvatarAction(cardType game.CardType, card game.CardStats) {
+func (r *runner) runAvatarAction(cardType game.CardType, card game.CardStats) bool {
 	creep := &r.state.Creep
 	avatar := &r.state.Avatar
 
@@ -194,7 +209,7 @@ func (r *runner) runAvatarAction(cardType game.CardType, card game.CardStats) {
 	if cardCount == 0 {
 		r.emitRedLogf("Tried to use unavailable card %s", cardType.String())
 		r.badMoves++
-		return
+		return false
 	}
 
 	if cardCount != -1 {
@@ -214,13 +229,16 @@ func (r *runner) runAvatarAction(cardType game.CardType, card game.CardStats) {
 		if avatar.MP < card.MP {
 			r.emitRedLogf("Not enough mana to use %s", cardType.String())
 			r.badMoves++
-			return
+			return false
 		}
 		avatar.MP -= card.MP
 		r.out = append(r.out, simstep.UpdateMP{Delta: -card.MP})
 	}
 
 	switch cardType {
+	case game.CardRetreat:
+		r.emitLogf("Trying to retreat...")
+
 	case game.CardAttack, game.CardPowerAttack:
 		damageRoll := r.rangeRand(card.Power)
 		creep.HP -= damageRoll
@@ -258,6 +276,8 @@ func (r *runner) runAvatarAction(cardType game.CardType, card game.CardStats) {
 	case game.CardRest, game.CardHeal:
 		r.avatarHeal(cardType, card)
 	}
+
+	return true
 }
 
 func (r *runner) avatarHeal(cardType game.CardType, card game.CardStats) {
@@ -298,9 +318,9 @@ func (r *runner) runTurn() bool {
 	creep := &r.state.Creep
 	avatar := &r.state.Avatar
 
-	cardType := r.chooseCard(*r.state)
+	cardType := r.chooseCard(cloneState(r.state))
 	card := gamedata.GetCardStats(cardType)
-	r.runAvatarAction(cardType, card)
+	cardIsPlayed := r.runAvatarAction(cardType, card)
 
 	if creep.HP <= 0 {
 		r.creepDefeated()
@@ -320,7 +340,7 @@ func (r *runner) runTurn() bool {
 			return false
 		}
 	}
-	if skipsAttack && cardType == game.CardParry {
+	if skipsAttack && cardType == game.CardParry && cardIsPlayed {
 		r.emitRedLogf("Tried to parry, but the enemy was not attacking")
 	}
 
@@ -344,7 +364,7 @@ func (r *runner) runTurn() bool {
 
 func (r *runner) nextRound() {
 	r.state.Round++
-	r.roundTurns = 0
+	r.state.RoundTurn = 0
 
 	r.state.Creep = newCreep(r.state.NextCreep)
 	r.state.NextCreep = r.peekCreep(r.state.Round + 1)
@@ -374,7 +394,7 @@ func (r *runner) beginTurn() {
 
 func (r *runner) endTurn() {
 	r.state.Turn++
-	r.roundTurns++
+	r.state.RoundTurn++
 	r.out = append(r.out, simstep.Wait{})
 	//fmt.Println(r.out)
 }

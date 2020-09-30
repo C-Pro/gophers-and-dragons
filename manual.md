@@ -1,4 +1,6 @@
-# Gophers & Dragons manual
+<img width="50%" height="50%" src="logo.png">
+
+# The manual
 
 ## Basics
 
@@ -61,6 +63,9 @@ The [game](https://godoc.org/github.com/quasilyte/gophers-and-dragons/game) pack
 |---|---|
 | Run button | Start the tactic simulation |
 | Pause/Resume button | Switch between pause/running modes in simulation; bound to space key |
+| Next Turn button | Advance 1 turn forward; only works when paused |
+| Format button | Apply an auto code formatting fix |
+| Share button | Copy a shareable link into your system clipboard; max sharable code size is limited |
 | Speed select | Adjust the simulation running speed |
 
 ## Cards

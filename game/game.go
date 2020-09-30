@@ -10,11 +10,16 @@ type State struct {
 	// Note that round number starts with one, not zero.
 	Round int
 
+	// RoundTurn is a round-local turn number.
+	// If it's 1, then it's a first turn in the round.
+	// Note that round turn number starts with one, not zero.
+	RoundTurn int
+
 	// Score is your current game score.
 	Score int
 
 	// Avatar contains information about your hero status.
-	Avatar AvatarStatus
+	Avatar Avatar
 
 	// Creep is an information about your current opponent.
 	Creep Creep
@@ -43,13 +48,20 @@ func (st *State) Can(cardType CardType) bool {
 // Creep is a particular creep information.
 type Creep struct {
 	Type CreepType
-	HP   int
+
+	HP int
+
+	// Stun is a number of turns this creep is going to skip.
+	// You probably want to use Creep.IsStunned() instead of this.
 	Stun int
+
 	CreepStats
 }
 
+// IsFull reports whether creep health is full.
 func (c *Creep) IsFull() bool { return c.HP == c.MaxHP }
 
+// IsStunned reports whether creep is currently stunned.
 func (c *Creep) IsStunned() bool { return c.Stun > 0 }
 
 // CreepStats is a set of creep statistics.
@@ -61,10 +73,17 @@ type CreepStats struct {
 	Traits      CreepTraitList
 }
 
-// AvatarStatus is a hero status information.
-type AvatarStatus struct {
+// Avatar is a hero status information.
+type Avatar struct {
 	HP int
 	MP int
+	AvatarStats
+}
+
+// AvatarStats is a set of avatar statistics.
+type AvatarStats struct {
+	MaxHP int
+	MaxMP int
 }
 
 // Card is a hero deck card information.
@@ -79,6 +98,7 @@ type Card struct {
 	CardStats
 }
 
+// CardStats is a set of card statistics.
 type CardStats struct {
 	// MP is a card mana cost per usage.
 	MP int
@@ -143,8 +163,10 @@ const (
 	CreepDragon
 )
 
+// CreepTraitList is convenience wrapper over a slice of creep traits.
 type CreepTraitList []CreepTrait
 
+// Has reports whether a creep trait list contains the specified trait.
 func (list CreepTraitList) Has(x CreepTrait) bool {
 	for _, trait := range list {
 		if trait == x {
@@ -154,6 +176,7 @@ func (list CreepTraitList) Has(x CreepTrait) bool {
 	return false
 }
 
+// CreepTrait is an enum-like type for creep special traits.
 type CreepTrait int
 
 // All creep traits.

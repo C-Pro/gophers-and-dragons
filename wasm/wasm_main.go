@@ -3,9 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"go/format"
 	"reflect"
 	"strings"
 	"syscall/js"
+	"time"
 
 	"github.com/quasilyte/gophers-and-dragons/game"
 	"github.com/quasilyte/gophers-and-dragons/wasm/gamedata"
@@ -16,6 +18,8 @@ import (
 )
 
 func main() {
+	js.Global().Set("gominify", js.FuncOf(gominify))
+	js.Global().Set("gofmt", js.FuncOf(gofmt))
 	js.Global().Set("evalGo", js.FuncOf(evalGo))
 	js.Global().Set("runSimulation", js.FuncOf(runSimulationJS))
 	js.Global().Set("getCreepStats", js.FuncOf(getCreepStats))
@@ -23,6 +27,27 @@ func main() {
 
 	ch := make(chan struct{})
 	<-ch
+}
+
+func gofmt(this js.Value, inputs []js.Value) interface{} {
+	code := inputs[0].String()
+	pretty, err := format.Source([]byte(code))
+	if err != nil {
+		return "error: " + err.Error()
+	}
+	return string(pretty)
+}
+
+func gominify(this js.Value, inputs []js.Value) interface{} {
+	code := inputs[0].String()
+	return code
+
+	// fset := token.NewFileSet()
+	// f, err := parser.ParseFile(fset, "gophers-and-dragons.go", []byte(code), 0)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// return string(minformat.Node(f))
 }
 
 func evalGo(this js.Value, inputs []js.Value) interface{} {
@@ -98,8 +123,18 @@ func runSimulation(config js.Value, code string) (actions []simstep.Action, err 
 
 	i.Use(map[string]map[string]reflect.Value{
 		"github.com/quasilyte/gophers-and-dragons/game": {
-			"State":    reflect.ValueOf((*game.State)(nil)),
-			"CardType": reflect.ValueOf((*game.CardType)(nil)),
+			"State":          reflect.ValueOf((*game.State)(nil)),
+			"Avatar":         reflect.ValueOf((*game.Avatar)(nil)),
+			"AvatarStats":    reflect.ValueOf((*game.AvatarStats)(nil)),
+			"Card":           reflect.ValueOf((*game.Card)(nil)),
+			"CardStats":      reflect.ValueOf((*game.CardStats)(nil)),
+			"CardType":       reflect.ValueOf((*game.CardType)(nil)),
+			"Creep":          reflect.ValueOf((*game.Creep)(nil)),
+			"CreepStats":     reflect.ValueOf((*game.CreepStats)(nil)),
+			"CreepType":      reflect.ValueOf((*game.CreepType)(nil)),
+			"CreepTrait":     reflect.ValueOf((*game.CreepTrait)(nil)),
+			"CreepTraitList": reflect.ValueOf((*game.CreepTraitList)(nil)),
+			"IntRange":       reflect.ValueOf((*game.IntRange)(nil)),
 
 			"CreepCheepy": reflect.ValueOf(game.CreepCheepy),
 			"CreepImp":    reflect.ValueOf(game.CreepImp),
@@ -147,11 +182,18 @@ func runSimulation(config js.Value, code string) (actions []simstep.Action, err 
 		return nil, errors.New("can't find proper ChooseCard definition")
 	}
 
+	seed := config.Get("seed")
 	simConfig := &sim.Config{
 		Rounds:   config.Get("rounds").Int(),
 		AvatarHP: config.Get("avatarHP").Int(),
 		AvatarMP: config.Get("avatarMP").Int(),
 	}
+	if seed.Type() == js.TypeNumber {
+		simConfig.Seed = int64(seed.Int())
+	} else {
+		simConfig.Seed = time.Now().UnixNano()
+	}
+
 	return sim.Run(simConfig, userFunc), nil
 }
 

@@ -24,10 +24,21 @@ func calculateHealed(roll, current, max int) int {
 	healed := roll
 	afterHeal := current + roll
 	if afterHeal > max {
-		healed = max - afterHeal
-		if healed < 0 {
-			return 0
-		}
+		healed -= afterHeal - max
 	}
 	return healed
+}
+
+func cloneState(st *game.State) game.State {
+	out := *st
+	out.Deck = cloneDeck(out.Deck)
+	return out
+}
+
+func cloneDeck(deck map[game.CardType]game.Card) map[game.CardType]game.Card {
+	out := make(map[game.CardType]game.Card, len(deck))
+	for typ, card := range deck {
+		out[typ] = card
+	}
+	return out
 }
